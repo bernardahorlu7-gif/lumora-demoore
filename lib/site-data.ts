@@ -12,7 +12,7 @@ export const company = {
   intro:
     'Lumora DeMoore Properties combines construction expertise, specialist finishing and property solutions to deliver dependable results across commercial, residential and institutional projects.',
   // Update these with the company's real details.
-  phone: '+233 00 000 0000',
+  phone: '+233 54 327 6570 / +233 55 073 7774',
   email: 'info@lumorademoore.com',
   location: 'Accra, Ghana',
   hours: 'Mon – Fri, 8:00am – 5:00pm',
