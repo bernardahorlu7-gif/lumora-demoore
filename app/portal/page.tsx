@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/authz'
 
 const statusStyles: Record<string, string> = {
   planning: 'text-gold',
@@ -10,12 +9,9 @@ const statusStyles: Record<string, string> = {
 }
 
 export default async function PortalPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const { supabase, user, profile } = await requireRole('client')
 
-  const [{ data: profile }, { data: clients }, { data: notifications }] = await Promise.all([
-    supabase.from('profiles').select('full_name, company_name, role').eq('id', user.id).maybeSingle(),
+  const [{ data: clients }, { data: notifications }] = await Promise.all([
     supabase.from('clients').select('id, company_name, contact_name').eq('profile_id', user.id).limit(1),
     supabase.from('notifications').select('id, title, body, read_at, created_at').order('created_at', { ascending: false }).limit(5),
   ])
