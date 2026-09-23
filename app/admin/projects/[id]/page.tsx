@@ -9,7 +9,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     supabase.from('projects').select('id, name, description, project_type, location, status, phase, progress_percent, start_date, target_completion_date, completion_date, internal_notes, project_lead_id, clients(company_name, contact_name)').eq('id', id).maybeSingle(),
     supabase.from('project_updates').select('id, title, content, update_type, is_client_visible, published_at, created_at').eq('project_id', id).order('created_at', { ascending: false }),
     supabase.from('documents').select('id, name, category, is_client_visible, created_at').eq('project_id', id).order('created_at', { ascending: false }),
-    supabase.from('procurement_requests').select('id, title, status, needed_by, created_at').eq('project_id', id).order('created_at', { ascending: false }),
+    supabase.from('procurement_requests').select('id, request_number, title, status, priority, required_date, estimated_value, quoted_value, created_at').eq('project_id', id).order('created_at', { ascending: false }),
     supabase.from('project_activities').select('id, activity_type, old_value, new_value, created_at').eq('project_id', id).order('created_at', { ascending: false }).limit(30),
     supabase.from('profiles').select('id, full_name, email, role').in('role', ['admin','staff']).eq('is_active', true).order('full_name'),
   ])
