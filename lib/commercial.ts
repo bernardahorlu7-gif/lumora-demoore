@@ -27,10 +27,8 @@ export function sumMoney(values: MoneyLike[]) {
 }
 
 export function margin(value: MoneyLike, cost: MoneyLike) {
-  const revenue = numberValue(value)
-  const actual = numberValue(cost)
-  if (revenue === null || actual === null) return null
-  return revenue - actual
+  if (value === null || value === undefined || cost === null || cost === undefined) return null
+  return sumMoney([value, `-${String(cost)}`])
 }
 
 export function marginPercent(value: MoneyLike, cost: MoneyLike) {
