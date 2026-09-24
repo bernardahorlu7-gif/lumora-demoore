@@ -16,11 +16,7 @@ export const company = {
   email: 'info@lumorademoore.com',
   location: 'Accra, Ghana',
   hours: 'Mon – Fri, 8:00am – 5:00pm',
-  socials: [
-    { label: 'LinkedIn', href: '#' },
-    { label: 'Instagram', href: '#' },
-    { label: 'Facebook', href: '#' },
-  ],
+  socials: [],
 }
 
 export const navLinks = [

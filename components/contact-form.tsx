@@ -14,15 +14,25 @@ export function ContactForm({ proposal = false }: { proposal?: boolean }) {
     setPending(true)
     setError('')
     const form = new FormData(event.currentTarget)
+    const name = String(form.get('name') ?? '').trim()
+    const email = String(form.get('email') ?? '').trim().toLowerCase()
+    const phone = String(form.get('phone') ?? '').trim()
+    const service = String(form.get('service') ?? '').trim()
+    const message = String(form.get('message') ?? '').trim()
+    if (name.length < 2 || name.length > 120 || message.length < 10 || message.length > 5000 || email.length > 254) {
+      setPending(false)
+      setError('Please check the form fields and try again.')
+      return
+    }
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const { error: insertError } = await supabase.from('proposal_requests').insert({
       requester_id: user?.id ?? null,
-      name: String(form.get('name') ?? ''),
-      email: String(form.get('email') ?? ''),
-      phone: String(form.get('phone') ?? '') || null,
-      service_slug: String(form.get('service') ?? '') || null,
-      message: String(form.get('message') ?? ''),
+      name,
+      email,
+      phone: phone || null,
+      service_slug: service || null,
+      message,
     })
     setPending(false)
     if (insertError) { setError('We could not record your request. Please try again or contact us directly.'); return }
