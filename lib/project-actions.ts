@@ -42,12 +42,43 @@ export async function addTeamMember(projectId: string, formData: FormData) {
   revalidatePath(`/admin/projects/${projectId}`); return { success: true }
 }
 
+const UPDATE_TYPES = ['progress', 'milestone', 'decision', 'risk', 'schedule', 'procurement', 'general'] as const
+
 export async function publishProjectUpdate(projectId: string, formData: FormData) {
   const { supabase, user } = await requireRole(['admin', 'staff'])
-  const title = String(formData.get('title') ?? '').trim(); const content = String(formData.get('content') ?? '').trim()
+  const title = String(formData.get('title') ?? '').trim()
+  const content = String(formData.get('content') ?? '').trim()
+  const updateType = String(formData.get('update_type') ?? 'progress')
+  const isClientVisible = formData.get('is_client_visible') === 'on'
   if (!title || !content) return { error: 'Title and content are required.' }
-  const { error } = await supabase.from('project_updates').insert({ project_id: projectId, author_id: user.id, title, content, update_type: String(formData.get('update_type') ?? 'progress'), is_client_visible: formData.get('is_client_visible') === 'on', published_at: new Date().toISOString() })
+  if (!UPDATE_TYPES.includes(updateType as (typeof UPDATE_TYPES)[number])) return { error: 'Choose a valid update type.' }
+  const { data: recent } = await supabase.from('project_updates').select('id').eq('project_id', projectId).eq('title', title).eq('content', content).gte('created_at', new Date(Date.now() - 60_000).toISOString()).limit(1)
+  if (recent?.length) return { error: 'This update was already submitted.' }
+  const { error } = await supabase.from('project_updates').insert({ project_id: projectId, author_id: user.id, title, content, update_type: updateType, is_client_visible: isClientVisible, published_at: new Date().toISOString() })
   if (error) return { error: error.message }
   await supabase.from('project_activities').insert({ project_id: projectId, actor_user_id: user.id, activity_type: 'update_published', new_value: title })
-  revalidatePath(`/admin/projects/${projectId}`); revalidatePath('/portal'); return { success: true }
+  revalidatePath(`/admin/projects/${projectId}`); revalidatePath('/admin/updates'); revalidatePath('/portal')
+  return { success: true }
+}
+
+export async function updateProjectUpdate(updateId: string, projectId: string, formData: FormData) {
+  const { supabase, user } = await requireRole(['admin', 'staff'])
+  const title = String(formData.get('title') ?? '').trim()
+  const content = String(formData.get('content') ?? '').trim()
+  const updateType = String(formData.get('update_type') ?? 'progress')
+  if (!title || !content || !UPDATE_TYPES.includes(updateType as (typeof UPDATE_TYPES)[number])) return { error: 'Provide a title, content, and valid update type.' }
+  const { error } = await supabase.from('project_updates').update({ title, content, update_type: updateType, is_client_visible: formData.get('is_client_visible') === 'on' }).eq('id', updateId).eq('project_id', projectId)
+  if (error) return { error: error.message }
+  await supabase.from('project_activities').insert({ project_id: projectId, actor_user_id: user.id, activity_type: 'update_published', new_value: `Edited: ${title}` })
+  revalidatePath(`/admin/projects/${projectId}`); revalidatePath('/admin/updates'); revalidatePath('/portal')
+  return { success: true }
+}
+
+export async function archiveProjectUpdate(updateId: string, projectId: string) {
+  const { supabase, user } = await requireRole(['admin', 'staff'])
+  const { error } = await supabase.from('project_updates').update({ is_client_visible: false, published_at: null }).eq('id', updateId).eq('project_id', projectId)
+  if (error) return { error: error.message }
+  await supabase.from('project_activities').insert({ project_id: projectId, actor_user_id: user.id, activity_type: 'update_published', new_value: `Archived: ${updateId}` })
+  revalidatePath(`/admin/projects/${projectId}`); revalidatePath('/admin/updates'); revalidatePath('/portal')
+  return { success: true }
 }

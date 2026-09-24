@@ -1,0 +1,16 @@
+import Link from 'next/link'
+import { requireRole } from '@/lib/authz'
+
+const types = ['all', 'progress', 'milestone', 'decision', 'risk', 'schedule', 'procurement', 'general']
+
+export default async function UpdatesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams
+  const { supabase } = await requireRole(['admin', 'staff'])
+  const q = typeof params.q === 'string' ? params.q : ''
+  const type = typeof params.type === 'string' ? params.type : 'all'
+  let query = supabase.from('project_updates').select('id, project_id, title, content, update_type, is_client_visible, published_at, created_at, projects(id, name)').order('created_at', { ascending: false }).limit(100)
+  if (q) query = query.ilike('title', `%${q}%`)
+  if (type !== 'all') query = query.eq('update_type', type)
+  const { data: updates } = await query
+  return <main className="min-h-screen bg-background px-5 py-12 md:px-8"><div className="mx-auto max-w-7xl"><div className="flex justify-between"><Link href="/admin" className="text-xs uppercase tracking-[.15em] text-muted-foreground">← Admin dashboard</Link><Link href="/admin/projects" className="text-xs uppercase tracking-[.15em] text-gold">Projects</Link></div><header className="mt-10 border-b border-border pb-8"><p className="text-xs uppercase tracking-[.2em] text-gold">Operations</p><h1 className="mt-2 font-heading text-4xl font-bold">Project updates</h1><p className="mt-3 max-w-2xl text-muted-foreground">A staff workspace for publishing project progress while keeping internal history private.</p></header><form className="mt-8 flex flex-wrap gap-3"><input name="q" defaultValue={q} placeholder="Search updates" className="min-w-64 flex-1 border border-border bg-transparent px-4 py-3 text-sm"/><select name="type" defaultValue={type} className="border border-border bg-background px-4 py-3 text-sm">{types.map((item) => <option key={item} value={item}>{item === 'all' ? 'All types' : item}</option>)}</select><button className="bg-foreground px-5 py-3 text-sm font-semibold text-background">Filter</button></form><section className="mt-8 overflow-hidden border border-border"><div className="hidden grid-cols-[1.4fr_1fr_.7fr_.7fr] gap-4 border-b border-border px-5 py-3 text-xs uppercase tracking-[.15em] text-muted-foreground md:grid"><span>Update</span><span>Project</span><span>Type</span><span>Visibility</span></div>{updates?.map((update: any) => <Link key={update.id} href={`/admin/projects/${update.project_id}`} className="grid gap-2 border-b border-border px-5 py-5 transition hover:bg-muted/30 md:grid-cols-[1.4fr_1fr_.7fr_.7fr] md:items-center"><div><p className="font-semibold">{update.title}</p><p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{update.content}</p><p className="mt-2 text-xs text-muted-foreground">{update.published_at ? new Date(update.published_at).toLocaleDateString() : 'Draft'}</p></div><span className="text-sm">{update.projects?.name || 'Unassigned project'}</span><span className="text-sm capitalize">{update.update_type}</span><span className="text-sm">{update.is_client_visible ? 'Client visible' : 'Internal'}</span></Link>)}{!updates?.length && <p className="p-8 text-sm text-muted-foreground">No project updates found.</p>}</section></div></main>
+}
