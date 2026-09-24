@@ -3,13 +3,14 @@ import { requireRole } from '@/lib/authz'
 
 export async function getCommandCenterData() {
   const { supabase, user } = await requireRole(['admin', 'staff'])
-  const [proposals, clients, projects, procurement, documents, staff] = await Promise.all([
+  const [proposals, clients, projects, procurement, documents, staff, commercial] = await Promise.all([
     supabase.from('proposal_requests').select('id,status,follow_up_at,created_at').order('created_at', { ascending: false }),
     supabase.from('clients').select('id,status,created_at'),
     supabase.from('projects').select('id,status,created_at'),
     supabase.from('procurement_requests').select('id,status,delivery_status,created_at'),
     supabase.from('documents').select('id,document_status,created_at'),
     supabase.from('profiles').select('id,role,account_status,first_name,last_name').in('role', ['admin', 'staff']),
+    supabase.from('commercial_records').select('id,contract_value,currency,commercial_status,commercial_cost_items(actual_amount),commercial_payments(amount,status),commercial_variations(approved_value,status)'),
   ])
   const now = Date.now()
   const day = 86400000
@@ -19,6 +20,9 @@ export async function getCommandCenterData() {
   const procurementRows = procurement.data ?? []
   const documentRows = documents.data ?? []
   const staffRows = staff.data ?? []
+  const commercialRows = commercial.data ?? []
+  const total = (values: unknown[]) => values.reduce((sum, value) => sum + (Number(value) || 0), 0)
+  const commercialTotals = commercialRows.reduce((acc, row: any) => { const revised = Number(row.contract_value) || 0; const actual = total((row.commercial_cost_items ?? []).map((x: any) => x.actual_amount)); const received = total((row.commercial_payments ?? []).filter((x: any) => x.status === 'Recorded').map((x: any) => x.amount)); acc.contract += revised; acc.actual += actual; acc.received += received; acc.outstanding += revised - received; return acc }, { contract: 0, actual: 0, received: 0, outstanding: 0 })
   return {
     user,
     metrics: {
@@ -28,6 +32,7 @@ export async function getCommandCenterData() {
       procurement: { open: procurementRows.filter((r) => !['completed', 'cancelled', 'delivered'].includes(r.status)).length, approval: procurementRows.filter((r) => ['under_review', 'quotation_received'].includes(r.status)).length, delivery: procurementRows.filter((r) => ['ordered', 'partially_delivered'].includes(r.status) || ['scheduled', 'in_transit', 'delivery_issue'].includes(r.delivery_status)).length },
       documents: { total: documentRows.length, active: documentRows.filter((r) => r.document_status !== 'archived').length, recent: documentRows.filter((r) => new Date(r.created_at).getTime() >= now - 30 * day).length },
       staff: { active: staffRows.filter((r) => r.account_status === 'active').length, admins: staffRows.filter((r) => r.role === 'admin' && r.account_status === 'active').length, inactive: staffRows.filter((r) => r.account_status !== 'active').length },
+      commercial: commercialTotals,
     },
     attention: { proposals: proposalRows.filter((r) => r.follow_up_at && new Date(r.follow_up_at).getTime() <= now).slice(0, 8), procurement: procurementRows.filter((r) => ['under_review', 'quotation_received', 'ordered', 'partially_delivered'].includes(r.status)).slice(0, 8), staff: staffRows.filter((r) => r.account_status !== 'active').slice(0, 8) },
   }
