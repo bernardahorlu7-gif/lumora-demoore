@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import { LumoraButton } from '@/components/lumora-button'
+import { WhatsAppButton } from '@/components/whatsapp-button'
 import { Reveal } from '@/components/reveal'
 
 type Props = {
@@ -38,6 +39,7 @@ export function CTASection({
             <LumoraButton href="/contact" variant="outline" size="lg">
               Contact Us
             </LumoraButton>
+            <WhatsAppButton />
           </div>
         </Reveal>
       </div>

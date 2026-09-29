@@ -7,6 +7,7 @@ import { Menu, X } from 'lucide-react'
 import { navLinks } from '@/lib/site-data'
 import { Brand } from '@/components/brand'
 import { LumoraButton } from '@/components/lumora-button'
+import { WhatsAppButton } from '@/components/whatsapp-button'
 import { cn } from '@/lib/utils'
 
 export function Navbar() {
@@ -70,7 +71,8 @@ export function Navbar() {
           })}
         </div>
 
-        <div className="hidden lg:block">
+        <div className="hidden items-center gap-3 lg:flex">
+          <WhatsAppButton compact />
           <LumoraButton href="/proposal" size="sm">
             Request a Proposal
           </LumoraButton>
@@ -130,10 +132,11 @@ export function Navbar() {
             )
           })}
         </div>
-        <div className="relative px-6 pb-10">
+        <div className="relative flex flex-col gap-3 px-6 pb-10">
           <LumoraButton href="/proposal" className="w-full" onClick={() => setOpen(false)}>
             Request a Proposal
           </LumoraButton>
+          <WhatsAppButton className="w-full" />
         </div>
       </div>
     </header>
