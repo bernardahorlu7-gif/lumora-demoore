@@ -7,8 +7,8 @@ export async function getAuthContext() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { supabase, user: null, profile: null, role: null as AppRole | null }
-  const { data: profile } = await supabase.from('profiles').select('id, full_name, email, company_name, role, is_active').eq('id', user.id).maybeSingle()
-  const role = profile?.is_active ? (profile.role as AppRole) : null
+  const { data: profile } = await supabase.from('profiles').select('id, full_name, email, company_name, role, is_active, account_status').eq('id', user.id).maybeSingle()
+  const role = profile?.is_active && profile.account_status === 'active' && ['client', 'staff', 'admin'].includes(profile.role) ? (profile.role as AppRole) : null
   return { supabase, user, profile, role }
 }
 

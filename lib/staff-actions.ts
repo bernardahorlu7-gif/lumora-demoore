@@ -28,10 +28,15 @@ export async function updateStaffProfile(userId: string, formData: FormData) {
 export async function updateStaffRole(userId: string, role: 'admin' | 'staff' | 'client') {
   const { supabase, user } = await requireRole('admin')
   if (userId === user.id && role !== 'admin') throw new Error('You cannot remove your own admin role.')
-  const { data: previous } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+  const { data: previous } = await supabase.from('profiles').select('role, account_status').eq('id', userId).maybeSingle()
+  if (!previous) throw new Error('Staff profile not found.')
+  if (previous.role === 'admin' && role !== 'admin' && previous.account_status === 'active') {
+    const { count } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin').eq('account_status', 'active').eq('is_active', true)
+    if ((count ?? 0) <= 1) throw new Error('The last active administrator cannot be demoted.')
+  }
   const { error } = await supabase.from('profiles').update({ role, updated_at: new Date().toISOString() }).eq('id', userId)
   if (error) throw new Error(error.message)
-  await supabase.from('staff_activities').insert({ target_user_id: userId, actor_user_id: user.id, activity_type: 'role_changed', old_value: previous?.role, new_value: role })
+  await supabase.from('staff_activities').insert({ target_user_id: userId, actor_user_id: user.id, activity_type: 'role_changed', old_value: previous.role, new_value: role })
   revalidatePath('/admin/staff'); revalidatePath(`/admin/staff/${userId}`)
 }
 
