@@ -7,12 +7,20 @@ async function staffContext() {
   return requireRole(['admin', 'staff'])
 }
 
+const proposalStatuses = new Set(['new', 'reviewing', 'contacted', 'qualified', 'proposal', 'quoted', 'won', 'lost', 'declined', 'closed'])
+const proposalPriorities = new Set(['low', 'normal', 'high', 'urgent'])
+
 export async function updateProposal(proposalId: string, values: { status?: string; priority?: string; assigned_to?: string | null; internal_notes?: string; follow_up_at?: string | null; quotation_reference?: string | null }) {
   const { supabase, user } = await staffContext()
   const { data: current } = await supabase.from('proposal_requests').select('status, priority, assigned_to, internal_notes, follow_up_at, quotation_reference').eq('id', proposalId).maybeSingle()
   if (!current) throw new Error('Proposal not found')
+  if (values.status !== undefined && !proposalStatuses.has(values.status)) throw new Error('Invalid proposal status')
+  if (values.priority !== undefined && !proposalPriorities.has(values.priority)) throw new Error('Invalid proposal priority')
   const { error } = await supabase.from('proposal_requests').update(values).eq('id', proposalId)
-  if (error) throw new Error('Unable to update proposal')
+  if (error) {
+    console.error('[v0] Proposal workflow update failed', { proposalId, fields: Object.keys(values), code: error.code })
+    throw new Error('Unable to update proposal')
+  }
   const activities = []
   if (values.status && values.status !== current.status) activities.push({ proposal_id: proposalId, actor_user_id: user.id, activity_type: 'status_changed', old_value: current.status, new_value: values.status })
   if (values.priority && values.priority !== current.priority) activities.push({ proposal_id: proposalId, actor_user_id: user.id, activity_type: 'priority_changed', old_value: current.priority, new_value: values.priority })
