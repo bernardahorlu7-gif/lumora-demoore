@@ -31,12 +31,12 @@ function logDashboardQueryError(label: string, result: SupabaseQueryResult) {
 export async function getCommandCenterData() {
   const { supabase, user } = await requireRole(['admin', 'staff'])
   const [proposals, clients, projects, procurement, documents, staff, commercial, updates] = await Promise.all([
-    supabase.from('proposal_requests').select('id,title,status,follow_up_at,created_at').order('created_at', { ascending: false }),
+    supabase.from('proposal_requests').select('id,name,company_name,project_name,status,follow_up_at,created_at').order('created_at', { ascending: false }),
     supabase.from('clients').select('id,company_name,contact_name,status,created_at'),
     supabase.from('projects').select('id,name,status,created_at,updated_at'),
     supabase.from('procurement_requests').select('id,request_number,title,status,delivery_status,created_at'),
     supabase.from('documents').select('id,document_status,created_at'),
-    supabase.from('profiles').select('id,role,account_status,first_name,last_name').in('role', ['admin', 'staff']),
+    supabase.from('profiles').select('id,role,account_status,full_name').in('role', ['admin', 'staff']),
     supabase.from('commercial_records').select('id,contract_value,currency,commercial_status,commercial_cost_items(actual_amount),commercial_payments(amount,status),commercial_variations(approved_value,status)'),
     supabase.from('project_updates').select('id,project_id,title,update_type,created_at,projects(id,name)').order('created_at', { ascending: false }).limit(8),
   ])
