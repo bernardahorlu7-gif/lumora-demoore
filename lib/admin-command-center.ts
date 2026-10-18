@@ -1,6 +1,33 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/authz'
 
+const dashboardDiagnosticEvent = 'lumora_dashboard_query_error'
+
+type SupabaseQueryResult = { error: { code?: string | null; message?: string | null; hint?: string | null } | null }
+
+function sanitizeDiagnosticText(value: unknown) {
+  if (typeof value !== 'string') return undefined
+  const sanitized = value
+    .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
+    .replace(/(supabase|postgres|postgrest):\/\/[^\s]+/gi, '[redacted-url]')
+    .replace(/(api[_-]?key|service[_-]?role|secret|token|password)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240)
+  return sanitized || undefined
+}
+
+function logDashboardQueryError(label: string, result: SupabaseQueryResult) {
+  if (!result.error) return
+  console.error(`[v0] ${dashboardDiagnosticEvent}`, {
+    event: dashboardDiagnosticEvent,
+    query: label,
+    code: sanitizeDiagnosticText(result.error.code),
+    message: sanitizeDiagnosticText(result.error.message),
+    hint: sanitizeDiagnosticText(result.error.hint),
+  })
+}
+
 export async function getCommandCenterData() {
   const { supabase, user } = await requireRole(['admin', 'staff'])
   const [proposals, clients, projects, procurement, documents, staff, commercial, updates] = await Promise.all([
@@ -13,7 +40,18 @@ export async function getCommandCenterData() {
     supabase.from('commercial_records').select('id,contract_value,currency,commercial_status,commercial_cost_items(actual_amount),commercial_payments(amount,status),commercial_variations(approved_value,status)'),
     supabase.from('project_updates').select('id,project_id,title,update_type,created_at,projects(id,name)').order('created_at', { ascending: false }).limit(8),
   ])
-  const errors = [proposals, clients, projects, procurement, documents, staff, commercial, updates].filter((result) => result.error).map((result) => result.error?.message ?? 'Unable to load dashboard data')
+  const dashboardQueries = [
+    ['proposals', proposals],
+    ['clients', clients],
+    ['projects', projects],
+    ['procurement', procurement],
+    ['documents', documents],
+    ['staff', staff],
+    ['commercial', commercial],
+    ['project_updates', updates],
+  ] as const
+  dashboardQueries.forEach(([label, result]) => logDashboardQueryError(label, result))
+  const errors = dashboardQueries.filter(([, result]) => result.error).map(([, result]) => result.error?.message ?? 'Unable to load dashboard data')
   const now = Date.now()
   const day = 86400000
   const proposalRows = proposals.data ?? []
