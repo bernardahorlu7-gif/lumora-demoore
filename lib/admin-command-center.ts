@@ -48,7 +48,7 @@ export async function getCommandCenterData() {
     attention: {
       proposals: proposalRows.filter((row) => row.follow_up_at && new Date(row.follow_up_at).getTime() <= now).slice(0, 6),
       projects: projectRows.filter((row) => ['on_hold', 'at_risk', 'delayed'].includes(row.status)).slice(0, 6),
-      procurement: procurementRows.filter((row) => ['under_review', 'quotation_received', 'ordered', 'partially_delivered'].includes(row.status)).slice(0, 6),
+      procurement: procurementRows.filter((row) => ['under_review', 'quotation_received', 'ordered', 'partially_delivered'].includes(row.status) || row.delivery_status === 'delivery_issue').slice(0, 6),
       staff: staffRows.filter((row) => row.account_status !== 'active').slice(0, 6),
       updates: updateRows,
     },
