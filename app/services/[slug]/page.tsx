@@ -8,6 +8,7 @@ import { PageHero } from '@/components/page-hero'
 import { CTASection } from '@/components/cta-section'
 import { LumoraButton } from '@/components/lumora-button'
 import { Reveal } from '@/components/reveal'
+import { ServiceMediaPortfolio } from '@/components/service-media-portfolio'
 
 export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }))
@@ -52,6 +53,8 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
             </Reveal>
           </div>
         </section>
+
+        <ServiceMediaPortfolio service={service} />
 
         <section className="bg-charcoal py-20 md:py-28">
           <div className="mx-auto max-w-7xl px-5 md:px-8">
