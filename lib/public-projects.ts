@@ -18,14 +18,24 @@ export async function getPublishedProjects() {
 
 export async function getPublishedProject(slug: string) {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { data: project, error } = await supabase
     .from('projects')
-    .select(`${PUBLIC_PROJECT_SELECT},project_media(id,media_type,stage,caption,description,sort_order)`)
+    .select(PUBLIC_PROJECT_SELECT)
     .eq('slug', slug)
     .eq('is_public', true)
     .in('status', ['active', 'completed'])
     .maybeSingle()
 
   if (error) throw new Error('Unable to load the published project.')
-  return data
+  if (!project) return null
+
+  const { data: media, error: mediaError } = await supabase
+    .from('project_media')
+    .select('id,media_type,stage,caption,description,sort_order')
+    .eq('project_id', project.id)
+    .eq('is_published', true)
+    .order('sort_order', { ascending: true })
+
+  if (mediaError) throw new Error('Unable to load the published project media.')
+  return { ...project, project_media: media ?? [] }
 }
