@@ -3,8 +3,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Montserrat, Inter } from 'next/font/google'
 import './globals.css'
-import { Navbar } from '@/components/navbar'
-import { Footer } from '@/components/footer'
+import { SiteChrome } from '@/components/site-chrome'
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -52,9 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body className={`${montserrat.variable} ${inter.variable} font-sans antialiased`}>
-        <Navbar />
-        <main id="main">{children}</main>
-        <Footer />
+        <SiteChrome>{children}</SiteChrome>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

@@ -1,5 +1,6 @@
 "use server"
 
+import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { requireRole } from '@/lib/authz'
 
@@ -17,7 +18,7 @@ export async function createProject(formData: FormData) {
   if (error) return { error: error.message }
   await supabase.from('project_activities').insert({ project_id: data.id, actor_user_id: user.id, activity_type: 'created' })
   revalidatePath('/admin/projects'); revalidatePath('/admin');
-  return { success: true, id: data.id }
+  redirect(`/admin/projects/${data.id}?created=1`)
 }
 
 export async function updateProject(projectId: string, formData: FormData) {
