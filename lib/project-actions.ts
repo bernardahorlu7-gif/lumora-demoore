@@ -32,6 +32,62 @@ export async function updateProject(projectId: string, formData: FormData) {
   return { success: true }
 }
 
+const MEDIA_TYPES = new Map([['image/jpeg', 'image'], ['image/png', 'image'], ['image/webp', 'image'], ['video/mp4', 'video'], ['video/webm', 'video']])
+
+export async function toggleProjectPublication(projectId: string, current: boolean) {
+  const { supabase, user } = await requireRole('admin')
+  const { error } = await supabase.from('projects').update({ is_public: !current }).eq('id', projectId)
+  if (error) return { error: error.message }
+  await supabase.from('project_activities').insert({ project_id: projectId, actor_user_id: user.id, activity_type: !current ? 'published' : 'unpublished' })
+  revalidatePath(`/admin/projects/${projectId}`); revalidatePath('/admin/projects'); revalidatePath('/projects')
+  return { success: !current ? 'Project published.' : 'Project unpublished.' }
+}
+
+export async function addProjectMedia(projectId: string, formData: FormData) {
+  const { supabase, user } = await requireRole(['admin', 'staff'])
+  const files = formData.getAll('files').filter((value): value is File => value instanceof File && value.size > 0)
+  const stage = String(formData.get('stage') ?? 'progress')
+  const serviceId = String(formData.get('service_id') ?? '').trim() || null
+  const caption = String(formData.get('caption') ?? '').trim() || null
+  if (!files.length) return { error: 'Choose at least one image or video.' }
+  if (!['before', 'progress', 'completed'].includes(stage)) return { error: 'Choose a valid project stage.' }
+  if (serviceId) { const { data } = await supabase.from('project_services').select('project_id').eq('project_id', projectId).eq('service_id', serviceId).maybeSingle(); if (!data) return { error: 'That service is not linked to this project.' } }
+  const { count } = await supabase.from('project_media').select('id', { count: 'exact', head: true }).eq('project_id', projectId)
+  const created: string[] = []
+  for (const file of files) {
+    const mediaType = MEDIA_TYPES.get(file.type)
+    const max = mediaType === 'video' ? 50 * 1024 * 1024 : 10 * 1024 * 1024
+    if (!mediaType || file.size > max) return { error: `${file.name} is not a supported file type or exceeds its size limit.` }
+    const id = crypto.randomUUID(); const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-'); const storagePath = `projects/${projectId}/${id}/${safeName}`
+    const { error: uploadError } = await supabase.storage.from('project-media').upload(storagePath, file, { contentType: file.type, upsert: false })
+    if (uploadError) { await Promise.all(created.map((path) => supabase.storage.from('project-media').remove([path]))); return { error: `Upload failed for ${file.name}. Please try again.` } }
+    const { error: insertError } = await supabase.from('project_media').insert({ id, project_id: projectId, service_id: serviceId, media_type: mediaType, stage, storage_path: storagePath, mime_type: file.type, file_size_bytes: file.size, caption, uploaded_by: user.id, sort_order: (count ?? 0) + created.length })
+    if (insertError) { await supabase.storage.from('project-media').remove([storagePath]); await Promise.all(created.map((path) => supabase.storage.from('project-media').remove([path]))); return { error: `Could not save ${file.name}. Please try again.` }
+    }
+    created.push(storagePath)
+  }
+  revalidatePath(`/admin/projects/${projectId}`); revalidatePath(`/projects`)
+  return { success: `${created.length} media file${created.length === 1 ? '' : 's'} uploaded.` }
+}
+
+export async function toggleProjectMediaPublication(projectId: string, mediaId: string, current: boolean) {
+  const { supabase } = await requireRole('admin')
+  const { error } = await supabase.from('project_media').update({ is_published: !current, updated_at: new Date().toISOString() }).eq('id', mediaId).eq('project_id', projectId)
+  if (error) return { error: error.message }; revalidatePath(`/admin/projects/${projectId}`); revalidatePath('/projects'); return { success: true }
+}
+
+export async function reorderProjectMedia(projectId: string, mediaId: string, targetOrder: number) {
+  const { supabase } = await requireRole(['admin', 'staff']); const { error } = await supabase.from('project_media').update({ sort_order: targetOrder, updated_at: new Date().toISOString() }).eq('id', mediaId).eq('project_id', projectId)
+  if (error) return { error: error.message }; revalidatePath(`/admin/projects/${projectId}`); return { success: true }
+}
+
+export async function deleteProjectMedia(projectId: string, mediaId: string, storagePath: string) {
+  const { supabase } = await requireRole(['admin', 'staff']); const { data: media } = await supabase.from('project_media').select('is_published, storage_path').eq('id', mediaId).eq('project_id', projectId).maybeSingle()
+  if (media?.is_published) return { error: 'Unpublish this media before deleting it.' }
+  const { error } = await supabase.from('project_media').delete().eq('id', mediaId).eq('project_id', projectId)
+  if (error) return { error: error.message }; await supabase.storage.from('project-media').remove([media?.storage_path || storagePath]); revalidatePath(`/admin/projects/${projectId}`); return { success: true }
+}
+
 export async function addTeamMember(projectId: string, formData: FormData) {
   const { supabase, user } = await requireRole('admin')
   const userId = String(formData.get('user_id') ?? '')
