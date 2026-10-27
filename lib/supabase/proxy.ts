@@ -22,8 +22,8 @@ export async function updateSession(request: NextRequest) {
   const isProtected = pathname === '/portal' || pathname.startsWith('/portal/') || pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/staff' || pathname.startsWith('/staff/')
   if (isProtected && !user) return NextResponse.redirect(new URL('/auth/login', request.url))
   if (user && (pathname === '/admin' || pathname.startsWith('/admin/') || pathname === '/staff' || pathname.startsWith('/staff/'))) {
-    const { data: profile } = await supabase.from('profiles').select('role, is_active').eq('id', user.id).maybeSingle()
-    if (!profile?.is_active || (pathname.startsWith('/admin') && profile.role !== 'admin') || (pathname.startsWith('/staff') && !['staff', 'admin'].includes(profile.role))) {
+    const { data: profile } = await supabase.from('profiles').select('role, is_active, account_status').eq('id', user.id).maybeSingle()
+    if (!profile?.is_active || profile.account_status !== 'active' || (pathname.startsWith('/admin') && profile.role !== 'admin') || (pathname.startsWith('/staff') && !['staff', 'admin'].includes(profile.role))) {
       return NextResponse.redirect(new URL('/forbidden', request.url))
     }
   }

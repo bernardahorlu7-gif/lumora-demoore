@@ -113,7 +113,14 @@ export async function updateStaffProfileFields(userId: string, fields: Record<st
 
 export async function updateStaffAccountStatus(userId: string, status: 'active' | 'suspended' | 'inactive') {
   const { supabase, user } = await requireRole('admin')
+  if (!['active', 'suspended', 'inactive'].includes(status)) throw new Error('Invalid account status.')
   if (userId === user.id && status !== 'active') throw new Error('You cannot deactivate your own account.')
+  const { data: target } = await supabase.from('profiles').select('role, account_status, is_active').eq('id', userId).maybeSingle()
+  if (!target) throw new Error('Staff profile not found.')
+  if (target.role === 'admin' && target.account_status === 'active' && status !== 'active') {
+    const { count } = await supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin').eq('account_status', 'active').eq('is_active', true)
+    if ((count ?? 0) <= 1) throw new Error('The last active administrator cannot be deactivated.')
+  }
   const { error } = await supabase.from('profiles').update({ account_status: status, is_active: status === 'active', updated_at: new Date().toISOString() }).eq('id', userId)
   if (error) throw new Error(error.message)
   await supabase.from('staff_activities').insert({ target_user_id: userId, actor_user_id: user.id, activity_type: 'status_changed', new_value: status })
