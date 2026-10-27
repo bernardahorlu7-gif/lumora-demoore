@@ -16,6 +16,8 @@ export async function updateStaffProfile(userId: string, formData: FormData) {
   if (!values.full_name) throw new Error('Full name is required.')
   if (!['active', 'suspended', 'inactive'].includes(values.account_status)) throw new Error('Invalid account status.')
   if (userId === user.id && values.account_status !== 'active') throw new Error('You cannot deactivate your own account.')
+  const { data: protectedOwner } = await supabase.from('protected_owners').select('owner_user_id').eq('owner_user_id', userId).maybeSingle()
+  if (protectedOwner && values.account_status !== 'active') throw new Error('The protected owner account cannot be deactivated.')
   const { data: previous } = await supabase.from('profiles').select('role, account_status').eq('id', userId).maybeSingle()
   const { error } = await supabase.from('profiles').update({ ...values, updated_at: new Date().toISOString(), is_active: values.account_status === 'active' }).eq('id', userId)
   if (error) throw new Error(error.message)
@@ -28,6 +30,8 @@ export async function updateStaffProfile(userId: string, formData: FormData) {
 export async function updateStaffRole(userId: string, role: 'admin' | 'staff' | 'client') {
   const { supabase, user } = await requireRole('admin')
   if (userId === user.id && role !== 'admin') throw new Error('You cannot remove your own admin role.')
+  const { data: protectedOwner } = await supabase.from('protected_owners').select('owner_user_id').eq('owner_user_id', userId).maybeSingle()
+  if (protectedOwner && role !== 'admin') throw new Error('The protected owner account cannot be demoted.')
   const { data: previous } = await supabase.from('profiles').select('role, account_status').eq('id', userId).maybeSingle()
   if (!previous) throw new Error('Staff profile not found.')
   if (previous.role === 'admin' && role !== 'admin' && previous.account_status === 'active') {
@@ -102,9 +106,8 @@ export async function updateStaffAssignment(table: 'proposal_requests' | 'procur
 
 export async function updateStaffRoleAndStatus(userId: string, role: 'admin' | 'staff' | 'client', status: 'active' | 'suspended' | 'inactive') {
   await updateStaffRole(userId, role)
-  const form = new FormData(); form.set('full_name', ''); form.set('account_status', status)
-  return { success: true }
-} 
+  return updateStaffAccountStatus(userId, status)
+}
 
 export async function updateStaffProfileFields(userId: string, fields: Record<string, string>) {
   const form = new FormData(); Object.entries(fields).forEach(([key, value]) => form.set(key, value))
